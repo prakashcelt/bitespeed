@@ -41,7 +41,8 @@ src/
    ```
 
 2. **Environment Configuration:**
-   Environment variables are configured in `.env`:
+   
+   **For Local Development (.env file):**
    ```env
    PORT=3000
    NODE_ENV=development
@@ -51,13 +52,115 @@ src/
    DB_USER=postgres
    DB_PASSWORD=Celt@1234
    ```
+   
+   **For Production (Render Environment Variables):**
+   ```env
+   NODE_ENV=production
+   DATABASE_URL=postgresql://bitespeed_y9te_user:7stUbnMBE7s46xSa3D9sDu5PS7APvprZ@dpg-d1t3scruibrs738s8000-a.oregon-postgres.render.com:5432/bitespeed_y9te
+   ```
 
 3. **Database Setup:**
    Ensure PostgreSQL is running and the `bitespeed` database exists with a `contact` table.
 
+## 🚀 Deployment on Render
+
+### Step 1: Deploy PostgreSQL Database
+
+1. **Create PostgreSQL Service on Render:**
+   - Go to [Render Dashboard](https://dashboard.render.com/)
+   - Click "New" → "PostgreSQL"
+   - Choose a name: `bitespeed-database`
+   - Select region closest to your users
+   - Choose plan (Free tier available)
+   - Click "Create Database"
+
+2. **Get Database Connection Details:**
+   After creation, Render provides:
+   - **External Database URL** (for external connections)
+   - **Internal Database URL** (for Render services)
+   - Host, Port, Database Name, Username, Password
+
+3. **Create Database Table:**
+   Connect to your database using the provided credentials and run:
+   ```sql
+   CREATE TABLE contact (
+     id SERIAL PRIMARY KEY,
+     phonenumber VARCHAR(50),
+     email VARCHAR(255),
+     linkedid INTEGER,
+     linkprecedence VARCHAR(20) CHECK (linkprecedence IN ('primary', 'secondary')),
+     createdat TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+     updatedat TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+     deletedat TIMESTAMP NULL
+   );
+   ```
+
+### Step 2: Deploy Node.js Application
+
+1. **Create Web Service on Render:**
+   - Click "New" → "Web Service"
+   - Connect your GitHub repository
+   - Configure the service:
+     - **Name**: `bitespeed-api`
+     - **Environment**: `Node`
+     - **Build Command**: `npm install`
+     - **Start Command**: `npm start`
+
+2. **Set Environment Variables:**
+   In the Render dashboard, add these environment variables:
+   
+   **Option 1: Using DATABASE_URL (Recommended)**
+   ```env
+   NODE_ENV=production
+   DATABASE_URL=postgresql://bitespeed_y9te_user:7stUbnMBE7s46xSa3D9sDu5PS7APvprZ@dpg-d1t3scruibrs738s8000-a.oregon-postgres.render.com:5432/bitespeed_y9te
+   ```
+   
+   **Option 2: Using Individual Variables**
+   ```env
+   NODE_ENV=production
+   DB_HOST=dpg-d1t3scruibrs738s8000-a.oregon-postgres.render.com
+   DB_PORT=5432
+   DB_NAME=bitespeed_y9te
+   DB_USER=bitespeed_y9te_user
+   DB_PASSWORD=7stUbnMBE7s46xSa3D9sDu5PS7APvprZ
+   ```
+
+3. **Deploy:**
+   - Click "Create Web Service"
+   - Render will automatically build and deploy your app
+   - Your app will be available at: `https://bitespeed-api.onrender.com`
+
+### Step 3: Update Database Configuration
+
+Update your `src/config/database.js` to handle Render's environment:
+
+```javascript
+const { Pool } = require('pg');
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL || undefined,
+  host: process.env.DB_HOST || 'localhost',
+  port: process.env.DB_PORT || 5432,
+  database: process.env.DB_NAME || 'bitespeed',
+  user: process.env.DB_USER || 'postgres',
+  password: process.env.DB_PASSWORD || 'Celt@1234',
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
+```
+
+### Important Notes for Render Deployment:
+
+- **Database URL**: Use the **Internal Database URL** for better performance
+- **SSL**: Render requires SSL connections in production
+- **Port**: Render automatically assigns port (usually 10000)
+- **Free Tier Limitations**: 
+  - Apps sleep after 15 minutes of inactivity
+  - Database has connection limits
+  - Consider paid plans for production use
+
 ## 🏃‍♂️ Running the Server
 
-### Development (with auto-restart):
+### Local Development:
 ```bash
 npm run dev
 ```
@@ -67,7 +170,23 @@ npm run dev
 npm start
 ```
 
-The server will start on `http://localhost:3000`
+The server will start on `http://localhost:3000` (local) or assigned port (Render)
+
+### 🚀 Quick Deployment Checklist
+
+- [ ] Create PostgreSQL database on Render
+- [ ] Note down database connection details
+- [ ] Run the CREATE TABLE SQL script
+- [ ] Push your code to GitHub repository
+- [ ] Create Web Service on Render connected to your repo
+- [ ] Set environment variables (DATABASE_URL or individual DB vars)
+- [ ] Ensure `src/config/database.js` handles SSL for production
+- [ ] Deploy and test the endpoints
+
+**Production URL Structure:**
+- API Base: `https://your-app-name.onrender.com`
+- Health Check: `https://your-app-name.onrender.com/health`
+- Identify Endpoint: `https://your-app-name.onrender.com/identify`
 
 ## 📡 API Endpoints
 
